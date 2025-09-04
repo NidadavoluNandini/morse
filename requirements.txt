@@ -6,3 +6,6 @@ av==10.0.0
 tensorflow==2.18.0        # or replace with tflite-runtime if you want smaller size
 mediapipe
 scikit-learn
+tflite-runtime
+
+
