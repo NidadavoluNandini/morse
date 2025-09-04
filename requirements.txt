@@ -3,6 +3,6 @@ streamlit-webrtc>=0.54.0
 opencv-python-headless==4.8.1.78
 numpy==1.26.0
 av
-mediapipe
+mediapipe==0.10.0
 scikit-learn
-tflite-runtime
+tflite-runtime==2.14.0
