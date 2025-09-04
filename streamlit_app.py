@@ -130,10 +130,13 @@ if st.sidebar.button("Reload model module"):
 
 RTC_VIDEO_HTML = VideoHTMLAttributes(autoPlay=True, controls=False, playsInline=True)
 
+# -----------------------------
+# WebRTC streamer (updated param)
+# -----------------------------
 webrtc_ctx = webrtc_streamer(
     key="realtime-inference",
     mode=WebRtcMode.SENDRECV,
-    video_transformer_factory=InferenceTransformer,
+    video_processor_factory=InferenceTransformer,  # updated
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"video": True, "audio": False},
     video_html_attrs=RTC_VIDEO_HTML,
