@@ -9,8 +9,8 @@ import numpy as np
 import streamlit as st
 from streamlit_webrtc import VideoTransformerBase, webrtc_streamer, WebRtcMode, VideoHTMLAttributes
 
-st.set_page_config(page_title="Realtime Inference Web App", layout="wide")
-st.title("Realtime Inference — drop your inference_tflite.py in this folder")
+st.set_page_config(page_title="GestureSpeak — Morse Code", layout="wide")
+st.title("GestureSpeak — Realtime Morse Code Inference")
 
 # -----------------------------
 # Dynamic model import
@@ -39,7 +39,6 @@ else:
 # Settings
 # -----------------------------
 FRAME_RATE = st.sidebar.slider("Process FPS (approx)", min_value=1, max_value=30, value=8)
-CONFIDENCE_THRESHOLD = st.sidebar.slider("Confidence threshold", min_value=0.0, max_value=1.0, value=0.4)
 
 # -----------------------------
 # Video transformer
@@ -50,25 +49,8 @@ class InferenceTransformer(VideoTransformerBase):
         self.frame_count = 0
         self.model = model_mod
         self.predict_fn = None
-
-        if self.model:
-            # Try common prediction patterns
-            if hasattr(self.model, "predict") and callable(self.model.predict):
-                self.predict_fn = lambda f: self.model.predict(f)
-            elif hasattr(self.model, "infer") and callable(self.model.infer):
-                self.predict_fn = lambda f: self.model.infer(f)
-            elif hasattr(self.model, "Inference"):
-                try:
-                    inst = self.model.Inference()
-                    if hasattr(inst, "predict"):
-                        self.predict_fn = lambda f: inst.predict(f)
-                    elif hasattr(inst, "infer"):
-                        self.predict_fn = lambda f: inst.infer(f)
-                except Exception:
-                    st.sidebar.error("Failed to instantiate Inference() from your module.")
-            else:
-                st.sidebar.warning("No recognized `predict`/`infer` function or `Inference` class found.")
-
+        if self.model and hasattr(self.model, "predict") and callable(self.model.predict):
+            self.predict_fn = lambda f: self.model.predict(f)
         self.last_label = None
         self.buffer_text = ""
 
@@ -77,7 +59,6 @@ class InferenceTransformer(VideoTransformerBase):
         now = time.time()
         self.frame_count += 1
 
-        # Throttle processing to FRAME_RATE
         if now - self.last_time < (1.0 / FRAME_RATE):
             self._draw_overlay(img, self.last_label)
             return img
@@ -90,7 +71,7 @@ class InferenceTransformer(VideoTransformerBase):
                 if isinstance(pred, str):
                     result_text = pred
                 elif isinstance(pred, dict):
-                    result_text = pred.get("label") or pred.get("text") or str(pred)
+                    result_text = pred.get("text") or str(pred)
                 else:
                     result_text = str(pred)
             else:
@@ -101,9 +82,8 @@ class InferenceTransformer(VideoTransformerBase):
 
         self.last_label = result_text
 
-        # accumulate short tokens
-        if result_text and len(result_text) < 50:
-            self.buffer_text += result_text + " "
+        if result_text and len(str(result_text)) < 50:
+            self.buffer_text += str(result_text) + " "
 
         self._draw_overlay(img, result_text)
         return img
@@ -130,20 +110,17 @@ if st.sidebar.button("Reload model module"):
 
 RTC_VIDEO_HTML = VideoHTMLAttributes(autoPlay=True, controls=False, playsInline=True)
 
-# -----------------------------
-# WebRTC streamer (updated param)
-# -----------------------------
 webrtc_ctx = webrtc_streamer(
     key="realtime-inference",
     mode=WebRtcMode.SENDRECV,
-    video_processor_factory=InferenceTransformer,  # updated
+    video_processor_factory=InferenceTransformer,
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={"video": True, "audio": False},
     video_html_attrs=RTC_VIDEO_HTML,
 )
 
 # -----------------------------
-# Show live output
+# Live output
 # -----------------------------
 st.sidebar.markdown("### Live output")
 if webrtc_ctx.video_transformer:
@@ -153,15 +130,3 @@ if webrtc_ctx.video_transformer:
     st.sidebar.text_area("Buffer (accumulated short tokens)", value=getattr(transformer, "buffer_text", ""), height=120)
 else:
     st.sidebar.info("Video transformer not initialized yet. Start camera in main area.")
-
-# -----------------------------
-# Notes
-# -----------------------------
-st.markdown("""
-**Notes**
-- Place your `inference_tflite.py` in the same folder and make sure it exposes either:
-  - `predict(frame: np.ndarray) -> str|dict` OR
-  - `infer(frame: np.ndarray) -> ...` OR
-  - `class Inference: def predict(self, frame): ...`
-- The app passes BGR `numpy.ndarray` frames from OpenCV. Convert to RGB/resized inside your module as needed.
-""")
