@@ -1,10 +1,8 @@
 streamlit>=1.24
 streamlit-webrtc>=0.54.0
-opencv-python
+opencv-python-headless>=4.10.0
 numpy
-av
-# Optional: if your inference needs tflite_runtime or tensorflow
-tensorflow==2.18.0      # optional; use tflite_runtime if you prefer lighter
-# OR for lighter tflite:
-# tflite-runtime
- 
+av==10.0.0
+tensorflow==2.18.0
+mediapipe
+scikit-learn
