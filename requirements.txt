@@ -1,8 +1,8 @@
 streamlit>=1.24
 streamlit-webrtc>=0.54.0
 opencv-python-headless==4.8.1.78
-numpy<2            # Fixes OpenCV + NumPy compatibility issues
-av                 # latest prebuilt wheel is fine
+numpy==1.26.0
+av
 mediapipe
 scikit-learn
-tflite-runtime     # lightweight TensorFlow Lite runtime
+tflite-runtime
