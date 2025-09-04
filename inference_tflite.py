@@ -6,7 +6,7 @@ import tensorflow as tf
 from collections import deque
 
 # ---------------------------
-# Load model and label encoder
+# Load TFLite model and encoder
 # ---------------------------
 interpreter = tf.lite.Interpreter(model_path='morse_model.tflite')
 interpreter.allocate_tensors()
@@ -20,41 +20,30 @@ with open('label_encoder.pkl', 'rb') as f:
 # Mediapipe Hands
 # ---------------------------
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=False,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
+hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 # ---------------------------
 # Gesture mappings
 # ---------------------------
-labels_dict = {'0': 'Dot', '1': 'Dash', '2': 'BlankSpace', '3': 'BackSpace', '4': 'Next'}
-display_map = {'Dot': '.', 'Dash': '-', 'BlankSpace': ' '}
-
-# Morse code dictionary
+labels_dict = {'0':'Dot','1':'Dash','2':'BlankSpace','3':'BackSpace','4':'Next'}
+display_map = {'Dot':'.','Dash':'-','BlankSpace':' '}
 MORSE_CODE_DICT = {
-    '.-':'A', '-...':'B', '-.-.':'C', '-..':'D', '.':'E',
-    '..-.':'F', '--.':'G', '....':'H', '..':'I', '.---':'J',
-    '-.-':'K', '.-..':'L', '--':'M', '-.':'N', '---':'O',
-    '.--.':'P', '--.-':'Q', '.-.':'R', '...':'S', '-':'T',
-    '..-':'U', '...-':'V', '.--':'W', '-..-':'X', '-.--':'Y',
-    '--..':'Z', '-----':'0', '.----':'1', '..---':'2', '...--':'3',
-    '....-':'4', '.....':'5', '-....':'6', '--...':'7', '---..':'8', '----.':'9'
+    '.-':'A','-...':'B','-.-.':'C','-..':'D','.':'E','..-.':'F','--.':'G','....':'H','..':'I',
+    '.---':'J','-.-':'K','.-..':'L','--':'M','-.':'N','---':'O','.--.':'P','--.-':'Q','.-.':'R',
+    '...':'S','-':'T','..-':'U','...-':'V','.--':'W','-..-':'X','-.--':'Y','--..':'Z','-----':'0',
+    '.----':'1','..---':'2','...--':'3','....-':'4','.....':'5','-....':'6','--...':'7','---..':'8','----.':'9'
 }
 
 # ---------------------------
 # State variables
 # ---------------------------
 displayed_text = ""
-current_morse = ""   # Accumulates dots and dashes for a single letter
+current_morse = ""
 last_gesture = ""
 gesture_stable_count = 0
 min_stable_frames = 10
 next_detected = False
-symbol_added = False   # <-- NEW: to prevent repeated symbols
-
-# Buffer for smoothing
+symbol_added = False
 buffer = deque(maxlen=5)
 
 # ---------------------------
@@ -70,6 +59,7 @@ def predict(frame: np.ndarray) -> dict:
     results = hands.process(frame_rgb)
 
     if not results.multi_hand_landmarks:
+        buffer.clear()
         gesture_stable_count = 0
         last_gesture = ""
         next_detected = False
@@ -96,40 +86,31 @@ def predict(frame: np.ndarray) -> dict:
             predicted_class = label_encoder.classes_[predicted_class_idx]
             predicted_character = labels_dict[predicted_class]
 
-            # Stability check
             if predicted_character == last_gesture:
                 gesture_stable_count += 1
             else:
                 gesture_stable_count = 0
                 last_gesture = predicted_character
-                symbol_added = False  # reset when gesture changes
+                symbol_added = False
 
             if gesture_stable_count >= min_stable_frames:
-                # --- Add Dot/Dash only once ---
-                if predicted_character in ["Dot", "Dash"] and not symbol_added:
+                if predicted_character in ["Dot","Dash"] and not symbol_added:
                     current_morse += display_map[predicted_character]
                     symbol_added = True
                     next_detected = False
-
-                # --- Decode letter on Next ---
                 elif predicted_character == "Next" and current_morse and not symbol_added:
-                    letter = MORSE_CODE_DICT.get(current_morse, "")
+                    letter = MORSE_CODE_DICT.get(current_morse,"")
                     displayed_text += letter
                     current_morse = ""
                     symbol_added = True
                     next_detected = True
-
-                # --- Decode word on BlankSpace ---
                 elif predicted_character == "BlankSpace" and not symbol_added:
                     if current_morse:
-                        letter = MORSE_CODE_DICT.get(current_morse, "")
-                        displayed_text += letter
+                        displayed_text += MORSE_CODE_DICT.get(current_morse,"")
                         current_morse = ""
-                    displayed_text += " "  # add space for word
+                    displayed_text += " "
                     symbol_added = True
                     next_detected = False
-
-                # --- Handle BackSpace ---
                 elif predicted_character == "BackSpace" and not symbol_added:
                     if current_morse:
                         current_morse = current_morse[:-1]
@@ -137,7 +118,6 @@ def predict(frame: np.ndarray) -> dict:
                         displayed_text = displayed_text[:-1]
                     symbol_added = True
 
-            # --- Smoothing buffer ---
             buffer.append(predicted_character)
             smoothed_prediction = max(set(buffer), key=buffer.count)
 
