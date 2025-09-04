@@ -2,10 +2,7 @@ streamlit>=1.24
 streamlit-webrtc>=0.54.0
 opencv-python-headless>=4.10.0
 numpy
-av==10.0.0
-tensorflow==2.18.0        # or replace with tflite-runtime if you want smaller size
+av               # don’t pin to 10.0.0, just use latest prebuilt wheel
 mediapipe
 scikit-learn
-tflite-runtime
-
-
+tflite-runtime   # use this instead of full TensorFlow
